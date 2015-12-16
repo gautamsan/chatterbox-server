@@ -112,7 +112,7 @@ exports.requestHandler = function(request, response) {
           roomObj.results.push(newMessage);
           fs.writeFile(room + '.json', JSON.stringify(roomObj));
           response.writeHead(201, headers);
-          response.write(responseData);
+          response.write(JSON.stringify(newMessage));
           response.end();
         }
       }); //end of fs.readFile

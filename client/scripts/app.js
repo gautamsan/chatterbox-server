@@ -277,6 +277,7 @@ app.send = function(message) {
     error: function(data) {
       // See: https://developer.mozilla.org/en-US/docs/Web/API/console.error
       console.error('chatterbox: Failed to send message. Error: ', data);
+      app.fetch();
     }
   });
 };
@@ -308,7 +309,6 @@ app.fetch = function() {
         if (app.isValid(obj)) {
           client.messages.push(obj);
         }
-
       });
 
     },
