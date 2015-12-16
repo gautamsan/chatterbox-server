@@ -11,8 +11,10 @@ this file and include it in basic-server.js so that it actually works.
 *Hint* Check out the node module documentation at http://nodejs.org/api/modules.html.
 
 **************************************************************/
+var fs = require("fs");
+var url = require("url");
 
-var requestHandler = function(request, response) {
+exports.requestHandler = function(request, response) {
   // Request and Response come from node's http module.
   //
   // They include information about both the incoming request, such as
@@ -27,10 +29,10 @@ var requestHandler = function(request, response) {
   // Adding more logging to your server can be an easy way to get passive
   // debugging help, but you should always be careful about leaving stray
   // console.logs in your code.
-  console.log("Serving request type " + request.method + " for url " + request.url);
 
+  console.log("Serving request type " + request.method + " for url " + request.url);
   // The outgoing status.
-  var statusCode = 200;
+  var status = 200;
 
   // See the note below about CORS headers.
   var headers = defaultCorsHeaders;
@@ -39,11 +41,92 @@ var requestHandler = function(request, response) {
   //
   // You will need to change this if you are sending something
   // other than plain text, like JSON or HTML.
-  headers['Content-Type'] = "text/plain";
+  headers['Content-Type'] = "application/json";
 
   // .writeHead() writes to the request line and headers of the response,
   // which includes the status and all headers.
-  response.writeHead(statusCode, headers);
+  //status code = 200
+
+  var requestURL = url.parse(request.url, true);
+  console.log(requestURL);
+  query = requestURL.query;
+
+  //handles npm test /classes/messages
+  var room = '.' + requestURL.path; //room = ./classes/messages
+
+  if (Object.keys(query).length !== 0) {
+    //handles chatterbox client, /?where={}
+    room = './classes/' + JSON.parse(query.where).roomname;
+  }
+
+
+  //response.writeHead(status, headers);
+  if (request.method === 'OPTIONS') {
+    response.writeHead(200, headers);
+    response.end();
+  }
+  if (request.method === 'GET') {
+    fs.readFile(room + ".json", 'utf-8', function(err, data) {
+      if (err) {
+        status = 404;
+        response.writeHead(status, headers);
+        response.end(err.message);
+      } else {
+        var roomObj = JSON.parse(data);
+        responseData = JSON.stringify(roomObj);
+        response.writeHead(200, headers);
+        response.write(responseData);
+        response.end();
+      }
+    });
+  }
+
+  if (request.method === 'POST') {
+    var dataChunk = '';
+
+    request.on('data', function(chunk) {
+      dataChunk += chunk;
+    });
+
+    request.on('end', function() {
+      var newMessage = JSON.parse(dataChunk);
+      room = "./classes/" + newMessage.roomname;
+      console.log(room);
+      // response.writeHead(201, headers);
+      // response.end();
+
+      fs.readFile(room + ".json", 'utf-8', function(err, data) {
+        if (err) { //file for room doesn't exist, so we have to create it
+          // ./classes/ROOMNAME.json
+          //http://www.c-sharpcorner.com/UploadFile/dacca2/node-js-in-action-create-simple-text-file-in-node-js-using/
+          var newRoom = {
+            results: []
+          };
+          newRoom.results.push(newMessage);
+          fs.writeFile(room + '.json', JSON.stringify(newRoom));
+          response.writeHead(201, headers);
+          response.write(responseData);
+          response.end();
+        } else {
+          var roomObj = JSON.parse(data);
+          roomObj.results.push(newMessage);
+          fs.writeFile(room + '.json', JSON.stringify(roomObj));
+          response.writeHead(201, headers);
+          response.write(responseData);
+          response.end();
+        }
+      }); //end of fs.readFile
+
+    });
+  }
+
+
+  /*    request.on('end', function() {
+        console.log("ended");
+      });
+      response.writeHead(201, headers);
+      response.write(responseData);
+      response.end();*/
 
   // Make sure to always call response.end() - Node may not send
   // anything back to the client until you do. The string you pass to
@@ -52,7 +135,7 @@ var requestHandler = function(request, response) {
   //
   // Calling .end "flushes" the response's internal buffer, forcing
   // node to actually send all the data over to the client.
-  response.end("Hello, World!");
+  // response.end(responseData);
 };
 
 // These headers will allow Cross-Origin Resource Sharing (CORS).
@@ -70,4 +153,3 @@ var defaultCorsHeaders = {
   "access-control-allow-headers": "content-type, accept",
   "access-control-max-age": 10 // Seconds.
 };
-
